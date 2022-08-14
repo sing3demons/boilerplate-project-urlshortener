@@ -1,11 +1,11 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
-const app = express()
 const dns = require('dns')
-
+const validURL = require('valid-url')
 const bodyParser = require('body-parser')
 
+const app = express()
 // Basic Configuration
 const port = process.env.PORT || 3000
 
@@ -21,34 +21,41 @@ app.get('/', function (req, res) {
 let link = []
 let short_url = 0
 
-app.get('/api/shorturl/:id', async (req, res) => {
-  const { id } = req.params
+app.get('/api/shorturl/:id', (req, res) => {
+  try {
+    const { id } = req.params
 
-  const links = link.find(({ short_url }) => Number(short_url) === Number(id))
+    const links = link.find(({ short_url }) => Number(short_url) === Number(id))
 
-  if (typeof links === 'undefined') {
-    console.log(links)
-    return res.json({ error: 'not url' })
+    if (links) {
+      return res.redirect(links.original_url)
+    }
+
+    return res.status(404).json('No URL found')
+  } catch (error) {
+    console.log(err)
   }
-
-  return await res.redirect(links.original_url)
 })
 
 app.post('/api/shorturl', (req, res) => {
   const { url } = req.body
-  let regex = /https:\/\/www.|http:\/\/www.|https:\/\//g
+  console.log(validURL.isWebUri(url))
 
-  dns.lookup(url.replace(regex, ''), (err, address, family) => {
-    if (err) {
-      res.json({ error: 'invalid url' })
-    } else {
-      short_url++
+  if (validURL.isWebUri(url) === undefined) {
+    res.json({ error: 'invalid url' })
+  } else {
+    try {
+      dns.lookup(validURL.isWebUri(url), (err, address, family) => {
+        short_url++
 
-      let resp = { original_url: url, short_url }
-      link.push(resp)
-      return res.json(resp)
+        let resp = { original_url: url, short_url }
+        link.push(resp)
+        return res.json(resp)
+      })
+    } catch (err) {
+      console.log(err)
     }
-  })
+  }
 })
 
 // Your first API endpoint
